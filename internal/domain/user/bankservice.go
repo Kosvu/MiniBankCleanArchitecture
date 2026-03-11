@@ -11,6 +11,7 @@ type BankService interface {
 	GetAllUser(ctx context.Context, limit, offset int) ([]User, error)
 	AddUser(ctx context.Context, fullName string) (User, error)
 	CreateTransaction(ctx context.Context, class string, userID uuid.UUID, amount int) (User, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 }
 
 const (
@@ -27,11 +28,11 @@ func NewBankService(storage Storage) *bankService {
 }
 
 func (b *bankService) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
-	return b.storage.GetUser(id)
+	return b.storage.GetUser(ctx, id)
 }
 
 func (b *bankService) GetAllUser(ctx context.Context, limit, offset int) ([]User, error) {
-	return b.storage.GetAllUsers(0, 0)
+	return b.storage.GetAllUsers(ctx, 0, 0)
 }
 
 func (b *bankService) AddUser(ctx context.Context, fullName string) (User, error) {
@@ -40,7 +41,7 @@ func (b *bankService) AddUser(ctx context.Context, fullName string) (User, error
 		return User{}, err
 	}
 
-	if err := b.storage.Create(u); err != nil {
+	if err := b.storage.Create(ctx, u); err != nil {
 		return User{}, err
 	}
 
@@ -48,7 +49,7 @@ func (b *bankService) AddUser(ctx context.Context, fullName string) (User, error
 }
 
 func (b *bankService) CreateTransaction(ctx context.Context, class string, userID uuid.UUID, amount int) (User, error) {
-	user, err := b.storage.GetUser(userID)
+	user, err := b.storage.GetUser(ctx, userID)
 	if err != nil {
 		return User{}, err
 	}
@@ -65,9 +66,13 @@ func (b *bankService) CreateTransaction(ctx context.Context, class string, userI
 	default:
 		return User{}, err
 	}
-	if err := b.storage.Update(user); err != nil {
+	if err := b.storage.Update(ctx, user); err != nil {
 		return User{}, err
 	}
 
 	return user, nil
+}
+
+func (b *bankService) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	return b.storage.Delete(ctx, id)
 }

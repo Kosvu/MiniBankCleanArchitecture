@@ -21,8 +21,8 @@ type TransactionRequest struct {
 }
 
 type ErrDTO struct {
-	error error
-	time  time.Time
+	Error string    `json:"error"`
+	Time  time.Time `json:"time"`
 }
 
 func (e *ErrDTO) ToString() string {

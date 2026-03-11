@@ -1,6 +1,7 @@
 package domains
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -13,11 +14,11 @@ var (
 )
 
 type Storage interface {
-	GetUser(id uuid.UUID) (User, error)
-	GetAllUsers(limit, offset int) ([]User, error)
-	Create(user User) error
-	Update(user User) error
-	Delete(id uuid.UUID) error
+	GetUser(ctx context.Context, id uuid.UUID) (User, error)
+	GetAllUsers(ctx context.Context, limit, offset int) ([]User, error)
+	Create(ctx context.Context, user User) error
+	Update(ctx context.Context, user User) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 type storage struct {
@@ -29,7 +30,7 @@ func NewStorage() *storage {
 	return &storage{users: make(map[uuid.UUID]*User)}
 }
 
-func (s *storage) GetUser(id uuid.UUID) (User, error) {
+func (s *storage) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -40,7 +41,7 @@ func (s *storage) GetUser(id uuid.UUID) (User, error) {
 	return *u, nil
 }
 
-func (s *storage) GetAllUsers(limit, offset int) ([]User, error) {
+func (s *storage) GetAllUsers(ctx context.Context, limit, offset int) ([]User, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -52,7 +53,7 @@ func (s *storage) GetAllUsers(limit, offset int) ([]User, error) {
 	return res, nil
 }
 
-func (s *storage) Create(user User) error {
+func (s *storage) Create(ctx context.Context, user User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -65,7 +66,7 @@ func (s *storage) Create(user User) error {
 	return nil
 }
 
-func (s *storage) Update(user User) error {
+func (s *storage) Update(ctx context.Context, user User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -78,7 +79,7 @@ func (s *storage) Update(user User) error {
 	return nil
 }
 
-func (s *storage) Delete(id uuid.UUID) error {
+func (s *storage) Delete(ctx context.Context, id uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

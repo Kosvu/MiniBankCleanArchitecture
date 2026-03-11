@@ -24,8 +24,8 @@ func (h *HTTPHandlers) GetAllUsersH(w http.ResponseWriter, r *http.Request) {
 	users, err := h.bank.GetAllUser(r.Context(), 0, 0)
 	if err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -36,8 +36,8 @@ func (h *HTTPHandlers) GetAllUsersH(w http.ResponseWriter, r *http.Request) {
 	b, err := json.MarshalIndent(users, "", "   ")
 	if err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -62,8 +62,8 @@ func (h *HTTPHandlers) GetUserByIDH(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -75,8 +75,8 @@ func (h *HTTPHandlers) GetUserByIDH(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -85,8 +85,8 @@ func (h *HTTPHandlers) GetUserByIDH(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := w.Write(b); err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -98,8 +98,8 @@ func (h *HTTPHandlers) AddUserH(w http.ResponseWriter, r *http.Request) {
 	var userDTO AddUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&userDTO); err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -110,8 +110,8 @@ func (h *HTTPHandlers) AddUserH(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -121,8 +121,8 @@ func (h *HTTPHandlers) AddUserH(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(user); err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -137,8 +137,8 @@ func (h *HTTPHandlers) CreateTransaction(w http.ResponseWriter, r *http.Request)
 	id, err := uuid.Parse(idString)
 	if err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -148,8 +148,8 @@ func (h *HTTPHandlers) CreateTransaction(w http.ResponseWriter, r *http.Request)
 	var transaction TransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -159,8 +159,8 @@ func (h *HTTPHandlers) CreateTransaction(w http.ResponseWriter, r *http.Request)
 	user, err := h.bank.CreateTransaction(r.Context(), transaction.Type, id, transaction.Amount)
 	if err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
@@ -170,11 +170,38 @@ func (h *HTTPHandlers) CreateTransaction(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(user); err != nil {
 		err := ErrDTO{
-			error: err,
-			time:  time.Now(),
+			Error: err.Error(),
+			Time:  time.Now(),
 		}
 
 		http.Error(w, err.ToString(), http.StatusBadRequest)
 		return
 	}
+}
+
+func (h *HTTPHandlers) DeleteUserH(w http.ResponseWriter, r *http.Request) {
+	idString := mux.Vars(r)["id"]
+
+	idUUID, err := uuid.Parse(idString)
+	if err != nil {
+		err := ErrDTO{
+			Error: err.Error(),
+			Time:  time.Now(),
+		}
+
+		http.Error(w, err.ToString(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.bank.DeleteUser(r.Context(), idUUID); err != nil {
+		err := ErrDTO{
+			Error: err.Error(),
+			Time:  time.Now(),
+		}
+
+		http.Error(w, err.ToString(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
