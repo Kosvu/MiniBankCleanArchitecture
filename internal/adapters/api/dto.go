@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,4 +33,16 @@ func (e *ErrDTO) ToString() string {
 	}
 
 	return string(b)
+}
+
+func writeJSON(w http.ResponseWriter, status int, data any) {
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
+}
+
+func writeError(w http.ResponseWriter, status int, err error) {
+	writeJSON(w, status, ErrDTO{
+		Error: err.Error(),
+		Time:  time.Now(),
+	})
 }

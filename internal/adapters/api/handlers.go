@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	domains "minibank/internal/domain/user"
 	"net/http"
-	"time"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -21,113 +21,67 @@ func NewHTTPHandlers(bank domains.BankService) *HTTPHandlers {
 }
 
 func (h *HTTPHandlers) GetAllUsersH(w http.ResponseWriter, r *http.Request) {
-	users, err := h.bank.GetAllUser(r.Context(), 0, 0)
-	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
+	page := 1
+	pageStr := r.URL.Query().Get("page")
+	if pageStr != "" {
+		pageInt, err := strconv.Atoi(pageStr)
+		if err != nil {
+			writeError(w, mapError(domains.ErrInvalidPagination), err)
+			return
 		}
 
-		http.Error(w, err.ToString(), http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	b, err := json.MarshalIndent(users, "", "   ")
-	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
+		if pageInt < 1 {
+			writeError(w, mapError(domains.ErrInvalidPagination), err)
+			return
 		}
+		page = pageInt
+	}
+	limit := 3
+	offset := (page - 1) * limit
 
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+	users, err := h.bank.GetAllUser(r.Context(), limit, offset)
+	if err != nil {
+		writeError(w, mapError(err), err)
 		return
 	}
-
-	if _, err := w.Write(b); err != nil {
-		return
-	}
+	writeJSON(w, http.StatusOK, users)
 }
 
 func (h *HTTPHandlers) GetUserByIDH(w http.ResponseWriter, r *http.Request) {
 
-	idSTR := mux.Vars(r)["id"]
+	idStr := mux.Vars(r)["id"]
 
-	id, err := uuid.Parse(idSTR) // перевод id в UUID
+	id, err := uuid.Parse(idStr) // перевод id в UUID
 	if err != nil {
-		http.Error(w, "invaild uuid", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, err)
+		return
 	}
 
 	user, err := h.bank.GetUserByID(r.Context(), id)
 
 	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+		writeError(w, mapError(err), err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	b, err := json.MarshalIndent(user, "", "    ")
-
-	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
-		return
-	}
-
-	if _, err := w.Write(b); err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
-		return
-	}
+	writeJSON(w, http.StatusOK, user)
 }
 
 func (h *HTTPHandlers) AddUserH(w http.ResponseWriter, r *http.Request) {
 	var userDTO AddUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&userDTO); err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	user, err := h.bank.AddUser(r.Context(), userDTO.FullName)
 
 	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+		writeError(w, mapError(err), err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(user); err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
-		return
-	}
+	writeJSON(w, http.StatusCreated, user)
 }
 
 func (h *HTTPHandlers) CreateTransaction(w http.ResponseWriter, r *http.Request) {
@@ -136,70 +90,36 @@ func (h *HTTPHandlers) CreateTransaction(w http.ResponseWriter, r *http.Request)
 
 	id, err := uuid.Parse(idString)
 	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+		writeError(w, mapError(err), err)
 		return
 	}
 
 	var transaction TransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	user, err := h.bank.CreateTransaction(r.Context(), transaction.Type, id, transaction.Amount)
 	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+		writeError(w, mapError(err), err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(user); err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
-		return
-	}
+	writeJSON(w, http.StatusCreated, user)
 }
 
 func (h *HTTPHandlers) DeleteUserH(w http.ResponseWriter, r *http.Request) {
 	idString := mux.Vars(r)["id"]
 
-	idUUID, err := uuid.Parse(idString)
+	idUuid, err := uuid.Parse(idString)
 	if err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.bank.DeleteUser(r.Context(), idUUID); err != nil {
-		err := ErrDTO{
-			Error: err.Error(),
-			Time:  time.Now(),
-		}
-
-		http.Error(w, err.ToString(), http.StatusBadRequest)
+	if err := h.bank.DeleteUser(r.Context(), idUuid); err != nil {
+		writeError(w, mapError(err), err)
 		return
 	}
 

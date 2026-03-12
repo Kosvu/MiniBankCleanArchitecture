@@ -3,15 +3,23 @@ package main
 import (
 	"context"
 	"minibank/internal/adapters/api"
+	"minibank/internal/adapters/config"
 	"minibank/internal/adapters/db"
 	domains "minibank/internal/domain/user"
 	"net/http"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	ctx := context.Background()
+	godotenv.Load("../../.env")
+	cfg, err := config.Load()
+	if err != nil {
+		panic(err)
+	}
 
-	pool, err := db.NewConnection(ctx)
+	pool, err := db.NewConnection(ctx, cfg.DataBaseURL)
 	if err != nil {
 		panic(err)
 	}
@@ -23,7 +31,7 @@ func main() {
 	router := api.NewRouter(handlers)
 
 	srv := &http.Server{
-		Addr:    ":9091",
+		Addr:    ":" + cfg.Port,
 		Handler: router,
 	}
 

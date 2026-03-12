@@ -2,15 +2,9 @@ package domains
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/google/uuid"
-)
-
-var (
-	ErrUserNotFound      = errors.New("User not found")
-	ErrUserAlreadyExists = errors.New("User already exists")
 )
 
 type Storage interface {

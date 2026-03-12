@@ -1,13 +1,7 @@
 package domains
 
 import (
-	"errors"
-
 	"github.com/google/uuid"
-)
-
-var (
-	ErrEmptyFullName = errors.New("full_name is required")
 )
 
 type User struct {
@@ -31,7 +25,7 @@ func NewUser(fullName string) (User, error) {
 
 func (u *User) Deposit(amount int) error {
 	if amount <= 0 {
-		return errors.New("Deposit error!")
+		return ErrInvalidAmount
 	}
 
 	u.Balance += amount
@@ -41,11 +35,11 @@ func (u *User) Deposit(amount int) error {
 func (u *User) Withdraw(amount int) error {
 
 	if amount <= 0 {
-		return errors.New("Withdraw amount must be positive!")
+		return ErrInvalidAmount
 	}
 
 	if u.Balance < amount {
-		return errors.New("Withdraw error!")
+		return ErrInsufficientFunds
 	}
 
 	u.Balance -= amount

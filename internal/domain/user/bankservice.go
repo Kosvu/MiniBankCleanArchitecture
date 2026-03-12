@@ -32,7 +32,7 @@ func (b *bankService) GetUserByID(ctx context.Context, id uuid.UUID) (User, erro
 }
 
 func (b *bankService) GetAllUser(ctx context.Context, limit, offset int) ([]User, error) {
-	return b.storage.GetAllUsers(ctx, 0, 0)
+	return b.storage.GetAllUsers(ctx, limit, offset)
 }
 
 func (b *bankService) AddUser(ctx context.Context, fullName string) (User, error) {
@@ -51,7 +51,7 @@ func (b *bankService) AddUser(ctx context.Context, fullName string) (User, error
 func (b *bankService) CreateTransaction(ctx context.Context, class string, userID uuid.UUID, amount int) (User, error) {
 	user, err := b.storage.GetUser(ctx, userID)
 	if err != nil {
-		return User{}, err
+		return User{}, ErrUserNotFound
 	}
 
 	switch class {
@@ -64,7 +64,7 @@ func (b *bankService) CreateTransaction(ctx context.Context, class string, userI
 			return User{}, err
 		}
 	default:
-		return User{}, err
+		return User{}, ErrUnknownTransactionType
 	}
 	if err := b.storage.Update(ctx, user); err != nil {
 		return User{}, err

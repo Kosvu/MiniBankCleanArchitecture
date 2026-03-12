@@ -53,15 +53,15 @@ func (r *UserRepository) GetAllUsers(ctx context.Context, limit, offset int) ([]
 		SELECT id, full_name, balance
 		FROM users
 		ORDER BY full_name
+		LIMIT $1 OFFSET $2
 		`
 
-	rows, err := r.db.Query(ctx, sqlQuery)
-	defer rows.Close()
-	var users []domains.User
-
+	rows, err := r.db.Query(ctx, sqlQuery, limit, offset)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+	users := make([]domains.User, 0)
 
 	for rows.Next() {
 		var user domains.User
