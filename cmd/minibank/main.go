@@ -5,6 +5,7 @@ import (
 	"minibank/internal/adapters/api"
 	"minibank/internal/adapters/config"
 	"minibank/internal/adapters/db"
+	"minibank/internal/adapters/logger"
 	domains "minibank/internal/domain/user"
 	"net/http"
 
@@ -13,21 +14,28 @@ import (
 
 func main() {
 	ctx := context.Background()
-	godotenv.Load("../../.env")
+	godotenv.Load(".env")
+
 	cfg, err := config.Load()
 	if err != nil {
 		panic(err)
 	}
+	log := logger.NewLogger(cfg.LogLevel)
+
+	log.Info("application started")
 
 	pool, err := db.NewConnection(ctx, cfg.DataBaseURL)
 	if err != nil {
-		panic(err)
+		log.Error("failed to connect database", "err", err)
+		return
 	}
 	defer pool.Close()
 
-	storage := db.NewUserRepository(pool)
+	log.Info("database connected")
+
+	storage := db.NewUserRepository(pool, log)
 	bankService := domains.NewBankService(storage)
-	handlers := api.NewHTTPHandlers(bankService)
+	handlers := api.NewHTTPHandlers(bankService, log)
 	router := api.NewRouter(handlers)
 
 	srv := &http.Server{
@@ -35,7 +43,9 @@ func main() {
 		Handler: router,
 	}
 
+	log.Info("http server starting", "addr", ":"+cfg.Port)
+
 	if err := srv.ListenAndServe(); err != nil {
-		panic(err)
+		log.Error("http server failed", "err", err)
 	}
 }

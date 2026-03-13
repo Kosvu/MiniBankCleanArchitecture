@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"log/slog"
 	domains "minibank/internal/domain/user"
 
 	"github.com/google/uuid"
@@ -9,11 +10,15 @@ import (
 )
 
 type UserRepository struct {
-	db *pgxpool.Pool
+	db  *pgxpool.Pool
+	log *slog.Logger
 }
 
-func NewUserRepository(db *pgxpool.Pool) *UserRepository {
-	return &UserRepository{db: db}
+func NewUserRepository(db *pgxpool.Pool, log *slog.Logger) *UserRepository {
+	return &UserRepository{
+		db:  db,
+		log: log,
+	}
 }
 
 func (r *UserRepository) Create(ctx context.Context, user domains.User) error {
@@ -29,7 +34,12 @@ func (r *UserRepository) Create(ctx context.Context, user domains.User) error {
 		user.Balance,
 	)
 
-	return err
+	if err != nil {
+		r.log.Error("failed to create user", "err", err, "full_name", user.FullName)
+		return err
+	}
+
+	return nil
 }
 
 func (r *UserRepository) GetUser(ctx context.Context, id uuid.UUID) (domains.User, error) {
@@ -42,6 +52,7 @@ func (r *UserRepository) GetUser(ctx context.Context, id uuid.UUID) (domains.Use
 	var user domains.User
 	err := r.db.QueryRow(ctx, sqlQuery, id).Scan(&user.ID, &user.FullName, &user.Balance)
 	if err != nil {
+		r.log.Error("failed to get user by id", "err", err, "user_id", id)
 		return domains.User{}, err
 	}
 
@@ -87,6 +98,7 @@ func (r *UserRepository) Update(ctx context.Context, user domains.User) error {
   	`
 	tag, err := r.db.Exec(ctx, sqlQuery, user.FullName, user.Balance, user.ID)
 	if err != nil {
+		r.log.Error("failed to update user", "err", err, "full_name", user.FullName)
 		return err
 	}
 
@@ -106,6 +118,7 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 	_, err := r.db.Exec(ctx, sqlQuery, id)
 	if err != nil {
+		r.log.Error("failed to delete user", "err", err, "user_id", id)
 		return err
 	}
 

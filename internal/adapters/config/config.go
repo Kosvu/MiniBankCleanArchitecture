@@ -8,6 +8,7 @@ import (
 type Config struct {
 	Port        string
 	DataBaseURL string
+	LogLevel    string
 }
 
 func Load() (Config, error) {
@@ -21,8 +22,14 @@ func Load() (Config, error) {
 		return Config{}, errors.New("DATABASE_URL is not set")
 	}
 
+	level := os.Getenv("LOG_LEVEL")
+	if level == "" {
+		level = "DEBUG"
+	}
+
 	return Config{
 		Port:        port,
 		DataBaseURL: databaseURL,
+		LogLevel:    level,
 	}, nil
 }
