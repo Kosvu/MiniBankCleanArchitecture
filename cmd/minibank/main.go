@@ -5,8 +5,8 @@ import (
 	"minibank/internal/adapters/api"
 	"minibank/internal/adapters/config"
 	"minibank/internal/adapters/db"
-	"minibank/internal/adapters/logger"
 	domains "minibank/internal/domain/user"
+	"minibank/internal/logger"
 	"net/http"
 
 	"github.com/joho/godotenv"
