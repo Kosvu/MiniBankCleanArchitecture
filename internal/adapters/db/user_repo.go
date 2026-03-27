@@ -2,10 +2,12 @@ package db
 
 import (
 	"context"
+	"errors"
 	"log/slog"
-	domains "minibank/internal/domain/user"
+	domains "minibank/internal/domain/users"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -47,11 +49,16 @@ func (r *UserRepository) GetUser(ctx context.Context, id uuid.UUID) (domains.Use
 		SELECT id, full_name, balance
 		FROM users
 		WHERE id=$1;
- 		`
+	`
 
 	var user domains.User
 	err := r.db.QueryRow(ctx, sqlQuery, id).Scan(&user.ID, &user.FullName, &user.Balance)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			r.log.Warn("user not found", "user_id", id)
+			return domains.User{}, domains.ErrUserNotFound
+		}
+
 		r.log.Error("failed to get user by id", "err", err, "user_id", id)
 		return domains.User{}, err
 	}
@@ -116,10 +123,14 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	WHERE id = $1
  	`
 
-	_, err := r.db.Exec(ctx, sqlQuery, id)
+	tag, err := r.db.Exec(ctx, sqlQuery, id)
 	if err != nil {
 		r.log.Error("failed to delete user", "err", err, "user_id", id)
 		return err
+	}
+
+	if tag.RowsAffected() == 0 {
+		return domains.ErrUserNotFound
 	}
 
 	return nil

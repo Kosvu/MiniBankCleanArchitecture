@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 	"log/slog"
-	domains "minibank/internal/domain/user"
+	domains "minibank/internal/domain/users"
 	"net/http"
 	"strconv"
 
@@ -150,7 +150,12 @@ func (h *HTTPHandlers) DeleteUserH(w http.ResponseWriter, r *http.Request) {
 		writeError(w, mapError(err), err)
 		return
 	}
-
+	
 	h.log.Info("user deleted", "user_id", idUuid)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *HTTPHandlers) HealthCheckH(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }

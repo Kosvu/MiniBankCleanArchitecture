@@ -5,15 +5,20 @@ import (
 	"minibank/internal/adapters/api"
 	"minibank/internal/adapters/config"
 	"minibank/internal/adapters/db"
-	domains "minibank/internal/domain/user"
+	domains "minibank/internal/domain/users"
 	"minibank/internal/logger"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	godotenv.Load(".env")
 
 	cfg, err := config.Load()
@@ -33,10 +38,10 @@ func main() {
 
 	log.Info("database connected")
 
-	storage := db.NewUserRepository(pool, log)
-	bankService := domains.NewBankService(storage)
-	handlers := api.NewHTTPHandlers(bankService, log)
-	router := api.NewRouter(handlers)
+	storage := db.NewUserRepository(pool, log)        // db
+	bankService := domains.NewBankService(storage)    // usecases
+	handlers := api.NewHTTPHandlers(bankService, log) // api
+	router := api.NewRouter(handlers)                 //api
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -45,7 +50,23 @@ func main() {
 
 	log.Info("http server starting", "addr", ":"+cfg.Port)
 
-	if err := srv.ListenAndServe(); err != nil {
-		log.Error("http server failed", "err", err)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("http server failed", "err", err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	<-stop
+
+	log.Info("shutting down server...")
+	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutCtx); err != nil {
+		log.Error("graceful shutdown failed", "err", err)
 	}
+
 }

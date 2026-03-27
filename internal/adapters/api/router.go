@@ -10,5 +10,6 @@ func NewRouter(h *HTTPHandlers) *mux.Router {
 	router.Path("/bank").Methods("POST").HandlerFunc(h.AddUserH)
 	router.Path("/bank/{id}/transaction").Methods("POST").HandlerFunc(h.CreateTransaction)
 	router.Path("/bank/{id}").Methods("DELETE").HandlerFunc(h.DeleteUserH)
+	router.Path("/bank/health").Methods("GET").HandlerFunc(h.HealthCheckH)
 	return router
 }

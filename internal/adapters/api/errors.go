@@ -2,7 +2,7 @@ package api
 
 import (
 	"errors"
-	domains "minibank/internal/domain/user"
+	domains "minibank/internal/domain/users"
 	"net/http"
 )
 
