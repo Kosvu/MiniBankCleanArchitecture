@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	domains "minibank/internal/domain/users"
 	"net/http"
@@ -401,6 +402,81 @@ func TestDeleteH(t *testing.T) {
 
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("expected %d, got %d, body=%q", http.StatusNotFound, rec.Code, rec.Body.String())
+		}
+	})
+}
+
+func TestGetTransactionsH(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		storage := domains.NewStorage()
+		service := domains.NewBankService(storage)
+		logger := slog.Default()
+		ctx := context.Background()
+		h := NewHTTPHandlers(service, logger)
+
+		rout := NewRouter(h)
+
+		user, err := service.AddUser(ctx, "Ivan Ivanov")
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = service.CreateTransaction(ctx, domains.TxDeposit, user.ID, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = service.CreateTransaction(ctx, domains.TxWithdraw, user.ID, 40)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/bank/"+user.ID.String()+"/transaction", nil)
+		rec := httptest.NewRecorder()
+
+		rout.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected %d, got %d", http.StatusOK, rec.Code)
+		}
+
+		var transaction []domains.Transaction
+		if err := json.NewDecoder(rec.Body).Decode(&transaction); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(transaction) != 2 {
+			t.Fatalf("expected %d transactions, got %d", 2, len(transaction))
+		}
+	})
+
+	t.Run("invalid uuid", func(t *testing.T) {
+		h := newTestHandlers()
+		router := NewRouter(h)
+
+		req := httptest.NewRequest(http.MethodGet, "/bank/not-uuid/transaction", nil)
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d, got %d", http.StatusBadRequest, rec.Code)
+		}
+	})
+
+	t.Run("user not found", func(t *testing.T) {
+		h := newTestHandlers()
+		router := NewRouter(h)
+
+		req := httptest.NewRequest(http.MethodGet, "/bank/"+uuid.New().String()+"/transaction", nil)
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected %d, got %d", http.StatusNotFound, rec.Code)
+
 		}
 	})
 }

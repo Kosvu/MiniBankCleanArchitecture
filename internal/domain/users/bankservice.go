@@ -12,6 +12,7 @@ type BankService interface {
 	AddUser(ctx context.Context, fullName string) (User, error)
 	CreateTransaction(ctx context.Context, class string, userID uuid.UUID, amount int) (User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
+	GetUserTransactions(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 }
 
 const (
@@ -29,6 +30,10 @@ func NewBankService(storage Storage) *bankService {
 
 func (b *bankService) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return b.storage.GetUser(ctx, id)
+}
+
+func (b *bankService) GetUserTransactions(ctx context.Context, userID uuid.UUID) ([]Transaction, error) {
+	return b.storage.GetUserTransactions(ctx, userID)
 }
 
 func (b *bankService) GetAllUser(ctx context.Context, limit, offset int) ([]User, error) {
@@ -67,6 +72,13 @@ func (b *bankService) CreateTransaction(ctx context.Context, class string, userI
 		return User{}, ErrUnknownTransactionType
 	}
 	if err := b.storage.Update(ctx, user); err != nil {
+		return User{}, err
+	}
+
+	tx := NewTransaction(userID, class, amount)
+
+	err = b.storage.CreateTransactionRecord(ctx, tx)
+	if err != nil {
 		return User{}, err
 	}
 

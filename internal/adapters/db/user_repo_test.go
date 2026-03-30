@@ -37,7 +37,7 @@ func NewTestRepo(t *testing.T) *UserRepository {
 
 	repo := NewUserRepository(pool, slog.Default())
 
-	_, err = pool.Exec(ctx, `TRUNCATE TABLE users`)
+	_, err = pool.Exec(ctx, `TRUNCATE TABLE transactions, users CASCADE`)
 
 	if err != nil {
 		t.Fatal(err)
@@ -255,6 +255,109 @@ func TestDelete(t *testing.T) {
 		err := r.Delete(ctx, uuid.New())
 		if !errors.Is(err, domains.ErrUserNotFound) {
 			t.Fatalf("expected user not found, got %v", err)
+		}
+	})
+}
+
+func TestCreateTransaction(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		r := NewTestRepo(t)
+		ctx := context.Background()
+
+		user, err := domains.NewUser("Ivan Ivanov")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = r.Create(ctx, user)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tx := domains.NewTransaction(user.ID, domains.TxDeposit, 100)
+		err = r.CreateTransactionRecord(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		transactions, err := r.GetUserTransactions(ctx, tx.UserID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(transactions) != 1 {
+			t.Fatalf("expected %d transaction, got %d", 1, len(transactions))
+		}
+
+		if transactions[0].UserID != user.ID {
+			t.Fatalf("expected user id %v, got %v", user.ID, transactions[0].UserID)
+		}
+
+		if transactions[0].Amount != 100 {
+			t.Fatalf("expected amoun %d, got %d", 100, transactions[0].Amount)
+		}
+	})
+}
+
+func TestGetTransactions(t *testing.T) {
+	t.Run("several transactions", func(t *testing.T) {
+		r := NewTestRepo(t)
+		ctx := context.Background()
+
+		user, err := domains.NewUser("Ivan Ivanov")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = r.Create(ctx, user)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tx1 := domains.NewTransaction(user.ID, domains.TxDeposit, 100)
+		err = r.CreateTransactionRecord(ctx, tx1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tx2 := domains.NewTransaction(user.ID, domains.TxDeposit, 150)
+		err = r.CreateTransactionRecord(ctx, tx2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tx3 := domains.NewTransaction(user.ID, domains.TxWithdraw, 200)
+		err = r.CreateTransactionRecord(ctx, tx3)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		transactions, err := r.GetUserTransactions(ctx, user.ID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if len(transactions) != 3 {
+			t.Fatalf("expected %d transactions, got %d", 3, len(transactions))
+		}
+	})
+
+	t.Run("empty result", func(t *testing.T) {
+		r := NewTestRepo(t)
+		ctx := context.Background()
+
+		user, err := domains.NewUser("Ivan Ivanov")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		transactions, err := r.GetUserTransactions(ctx, user.ID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if len(transactions) != 0 {
+			t.Fatalf("expected %d transactions, got %d", 0, len(transactions))
 		}
 	})
 }

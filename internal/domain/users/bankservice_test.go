@@ -81,7 +81,7 @@ func TestBankService_GetUserByID(t *testing.T) {
 	})
 }
 
-func TestBankService_CreateTransaction(t *testing.T) {
+func TestBankService_CreateTransaction_RecordSaved(t *testing.T) {
 	t.Run("deposit success", func(t *testing.T) {
 		storage := NewStorage()
 		service := NewBankService(storage)
@@ -95,6 +95,15 @@ func TestBankService_CreateTransaction(t *testing.T) {
 		updatedUser, err := service.CreateTransaction(ctx, TxDeposit, user.ID, 100)
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		arr, err := service.GetUserTransactions(ctx, user.ID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if len(arr) != 1 {
+			t.Fatalf("expected %d transactions, got %d", 1, len(arr))
 		}
 
 		if updatedUser.Balance != 100 {
@@ -190,6 +199,49 @@ func TestBankService_DeleteUser(t *testing.T) {
 		_, err = service.GetUserByID(ctx, user.ID)
 		if !errors.Is(err, ErrUserNotFound) {
 			t.Fatalf("expected ErrUserNotFound after delete, got %v", err)
+		}
+	})
+}
+
+func TestBankService_GetUserTransactions(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		storage := NewStorage()
+		service := NewBankService(storage)
+		ctx := context.Background()
+
+		user, err := service.AddUser(ctx, "Ivan Ivanov")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = service.CreateTransaction(ctx, TxDeposit, user.ID, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = service.CreateTransaction(ctx, TxWithdraw, user.ID, 40)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		transactions, err := service.GetUserTransactions(ctx, user.ID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if len(transactions) != 2 {
+			t.Fatalf("expected %d transactions, got %d", 2, len(transactions))
+		}
+	})
+
+	t.Run("user not found", func(t *testing.T) {
+		storage := NewStorage()
+		service := NewBankService(storage)
+		ctx := context.Background()
+
+		_, err := service.GetUserTransactions(ctx, uuid.New())
+		if !errors.Is(err, ErrUserNotFound) {
+			t.Fatalf("expected ErrUserNotFound, got %v", err)
 		}
 	})
 }

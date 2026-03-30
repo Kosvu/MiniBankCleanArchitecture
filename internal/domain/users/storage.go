@@ -13,11 +13,14 @@ type Storage interface {
 	Create(ctx context.Context, user User) error
 	Update(ctx context.Context, user User) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	CreateTransactionRecord(ctx context.Context, tx Transaction) error
+	GetUserTransactions(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 }
 
 type storage struct {
-	mu    sync.RWMutex
-	users map[uuid.UUID]*User
+	mu           sync.RWMutex
+	users        map[uuid.UUID]*User
+	transactions []Transaction
 }
 
 func NewStorage() *storage {
@@ -82,4 +85,32 @@ func (s *storage) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	delete(s.users, id)
 	return nil
+}
+
+func (s *storage) CreateTransactionRecord(ctx context.Context, tx Transaction) error {
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.transactions = append(s.transactions, tx)
+	return nil
+}
+
+func (s *storage) GetUserTransactions(ctx context.Context, userID uuid.UUID) ([]Transaction, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if _, ok := s.users[userID]; !ok {
+		return nil, ErrUserNotFound
+	}
+
+	var arr []Transaction
+
+	for _, el := range s.transactions {
+		if el.UserID == userID {
+			arr = append(arr, el)
+		}
+	}
+
+	return arr, nil
 }

@@ -40,7 +40,7 @@ func newE2ERepo(t *testing.T) *db.UserRepository {
 
 	repo := db.NewUserRepository(pool, slog.Default())
 
-	_, err = pool.Exec(ctx, `TRUNCATE TABLE users`)
+	_, err = pool.Exec(ctx, `TRUNCATE TABLE transactions, users CASCADE`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,6 +358,137 @@ func TestE2E_InsufficientFunds(t *testing.T) {
 
 		if gotUser.Balance != 0 {
 			t.Fatalf("expected %d balance, got %d", 0, gotUser.Balance)
+		}
+	})
+}
+
+func TestE2E_GetUserTransactions(t *testing.T) {
+	repo := newE2ERepo(t)
+	service := domains.NewBankService(repo)
+	logger := slog.Default()
+	h := NewHTTPHandlers(service, logger)
+	router := NewRouter(h)
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	client := &http.Client{}
+	ctx := context.Background()
+
+	var createdUser domains.User
+
+	t.Run("create and capture user", func(t *testing.T) {
+		body := `{"full_name":"Ivan Ivanov"}`
+
+		resp, err := client.Post(server.URL+"/bank", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("expected %d, got %d", http.StatusCreated, resp.StatusCode)
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&createdUser); err != nil {
+			t.Fatal(err)
+		}
+
+		if createdUser.FullName != "Ivan Ivanov" {
+			t.Fatalf("expected %q, got %q", "Ivan Ivanov", createdUser.FullName)
+		}
+
+		if createdUser.Balance != 0 {
+			t.Fatalf("expected balance %d, got %d", 0, createdUser.Balance)
+		}
+	})
+
+	t.Run("deposit", func(t *testing.T) {
+		body := `{
+			"type": "deposit",
+			"amount": 100
+		}`
+
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPost,
+			server.URL+"/bank/"+createdUser.ID.String()+"/transaction",
+			strings.NewReader(body),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("expected %d, got %d", http.StatusCreated, resp.StatusCode)
+		}
+	})
+
+	t.Run("withdraw", func(t *testing.T) {
+		body := `{
+			"type": "withdraw",
+			"amount": 40
+		}`
+
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPost,
+			server.URL+"/bank/"+createdUser.ID.String()+"/transaction",
+			strings.NewReader(body),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("expected %d, got %d", http.StatusCreated, resp.StatusCode)
+		}
+	})
+
+	t.Run("get user transactions", func(t *testing.T) {
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
+			server.URL+"/bank/"+createdUser.ID.String()+"/transaction",
+			nil,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected %d, got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		var transactions []domains.Transaction
+		if err := json.NewDecoder(resp.Body).Decode(&transactions); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(transactions) != 2 {
+			t.Fatalf("expected %d transactions, got %d", 2, len(transactions))
 		}
 	})
 }

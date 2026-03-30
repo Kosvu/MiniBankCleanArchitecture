@@ -150,9 +150,29 @@ func (h *HTTPHandlers) DeleteUserH(w http.ResponseWriter, r *http.Request) {
 		writeError(w, mapError(err), err)
 		return
 	}
-	
+
 	h.log.Info("user deleted", "user_id", idUuid)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *HTTPHandlers) GetUserTransactionsH(w http.ResponseWriter, r *http.Request) {
+	idString := mux.Vars(r)["id"]
+
+	id, err := uuid.Parse(idString)
+	if err != nil {
+		h.log.Warn("invalid user id for get transactions", "id", idString, "err", err)
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	transactions, err := h.bank.GetUserTransactions(r.Context(), id)
+	if err != nil {
+		h.log.Error("failed to get user transactions", "err", err, "user_id", id)
+		writeError(w, mapError(err), err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, transactions)
 }
 
 func (h *HTTPHandlers) HealthCheckH(w http.ResponseWriter, r *http.Request) {

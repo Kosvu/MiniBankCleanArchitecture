@@ -135,3 +135,51 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 	return nil
 }
+
+func (r *UserRepository) CreateTransactionRecord(ctx context.Context, tx domains.Transaction) error {
+	sqlQuery := `
+	INSERT INTO transactions(id, user_id, transaction_type, amount, created_at)
+	VALUES ($1, $2, $3, $4, $5)
+	`
+
+	_, err := r.db.Exec(ctx, sqlQuery, tx.ID, tx.UserID, tx.TransactionType, tx.Amount, tx.CreatedAt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *UserRepository) GetUserTransactions(ctx context.Context, userID uuid.UUID) ([]domains.Transaction, error) {
+	sqlQuery := `
+	SELECT id, user_id, transaction_type, amount, created_at
+	FROM transactions
+	WHERE user_id = $1
+	ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, sqlQuery, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transaction []domains.Transaction
+
+	for rows.Next() {
+		var tx domains.Transaction
+
+		err := rows.Scan(&tx.ID, &tx.UserID, &tx.TransactionType, &tx.Amount, &tx.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		transaction = append(transaction, tx)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return transaction, nil
+
+}
